@@ -1,0 +1,1 @@
+forall s:speedLimit.[true*.allowedSpeed(s).!allowedSpeedSend(s)*]<true*.allowedSpeedSend(s)>true

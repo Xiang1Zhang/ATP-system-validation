@@ -1,0 +1,1 @@
+([true*.bellRing.true*.reportBrakeStatus(nonBraking).true*.timeOut] mu X.[!applyEmergencyBrake]X && <true>true)

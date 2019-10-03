@@ -1,0 +1,1 @@
+([true*.stopMessage] mu X.[!applyEmergencyBrake]X && [fullStop.applyEmergencyBrake]false && <true>true )

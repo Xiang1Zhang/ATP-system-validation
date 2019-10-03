@@ -1,0 +1,194 @@
+%---------------------------------------------------------------------------- 	
+	sort
+	%---------------------- D A T A   T Y P E ---------------------------------
+		
+		currentSpeed 	= struct s_0 | s_1to40 | s_41to60 | s_61to80 | s_81to130 | s_131to140 | s_141toMaxSpeed;
+		speedLimit 		= struct sL_40| sL_60 | sL_80 | sL_130 | sL_140;
+		brakeStatus 	= struct nonBraking | normalBraking | emergencyBraking;
+	
+	%--------------------------------------------------------------------------- 
+	act 
+	%---------------- E X T E R N A L   A C T I O N S -------------------------
+
+		pressReset;
+		
+		bellRing;
+		bellReminder;
+		timeOut;
+		releaseBrakeSignal;
+		
+		allowedSpeed: speedLimit;
+		receiveSpecialPulse;
+		freightMode;
+		stopMessage;
+		
+		antennaOn;
+		antennaOff;
+		
+		receiveSpeed: currentSpeed;
+		fullStop;
+		enterERTMS;
+		leaveERTMS;
+		
+		allowedSpeedSend: speedLimit;
+		applyEmergencyBrake;
+		
+		
+		reportBrakeStatus: brakeStatus;
+				
+	
+	%------------------------------------------------------------- 
+	
+	%------------- I N T E R N A L   A C T I O N S ---------------
+	
+	
+		request_stopMessage; response_stopMessage;
+		request_ERTMS:Bool; response_ERTMS:Bool; ERTMS:Bool;
+	
+		request_allowedSpeed: speedLimit; response_allowedSpeed: speedLimit;
+		request_receiveSpeed: currentSpeed; response_receiveSpeed: currentSpeed;
+		request_reportBrakeStatus: brakeStatus; response_reportBrakeStatus: brakeStatus;
+	
+	%-------------------------------------------------------------
+	proc
+	%---------------- A T P   M O D U L E S ---------------------
+	
+	%------------------------------------------------------------
+	%Beginning of generic ATP
+	%------------------------------------------------------------
+	
+		genericATP
+		= 
+			%-- req1 --%
+			(sum newLimit:speedLimit.response_allowedSpeed(newLimit).allowedSpeedSend(newLimit).genericATP) +
+			
+			(sum newStatus:brakeStatus.request_reportBrakeStatus(newStatus).genericATP)+
+
+			(sum newSpeed:currentSpeed.request_receiveSpeed(newSpeed).genericATP)+
+			%-- req7 --%
+			
+			(enterERTMS.request_ERTMS(true).genericATP) +
+			(leaveERTMS.request_ERTMS(false).genericATP);
+
+	
+	%------------------------------------------------------------
+	%End of generic ATP
+	%------------------------------------------------------------
+	
+	%-----------------------------------------------------------
+	%Beginning of 	A T P ++
+	%------------------------------------------------------------
+		
+		ATPplusplus(sL:speedLimit, bS:brakeStatus, rB:Bool)
+		=
+	
+			%-------------- Report Speed Limit(req1) --------------%
+			(sum newLimit:speedLimit.request_allowedSpeed(newLimit).ATPplusplus(newLimit, bS, rB)) +
+
+			%-------------- Report Brake Status --------------%
+			(response_reportBrakeStatus(nonBraking).ATPplusplus(sL, nonBraking, rB)) +
+			(response_reportBrakeStatus(normalBraking).ATPplusplus(sL, normalBraking, rB)) +
+			(response_reportBrakeStatus(emergencyBraking).ATPplusplus(sL, emergencyBraking, rB)) +
+
+			%--------------Report ERTMS Status(req7)----------------%
+			(response_ERTMS(true).antennaOff.ATPplusplus(sL, bS, rB)) + 
+			(response_ERTMS(false).antennaOn.ATPplusplus(sL, bS, rB)) +
+	
+			%-------------- Report Current Speed(req2) --------------%
+			(response_receiveSpeed(s_0).ATPplusplus(sL,nonBraking,false)) +
+			(response_receiveSpeed(s_1to40).ATPplusplus(sL,bS,false)) +
+			(response_receiveSpeed(s_41to60).(bS==nonBraking && sL<=sL_40)-> bellRing.ATPplusplus(sL,bS,true)) +
+			(response_receiveSpeed(s_61to80).(bS==nonBraking && sL<=sL_60)-> bellRing.ATPplusplus(sL,bS,true)) +
+			(response_receiveSpeed(s_81to130).(bS==nonBraking && sL<=sL_80)-> bellRing.ATPplusplus(sL,bS,true)) +		
+			(response_receiveSpeed(s_131to140).(bS==nonBraking && sL<=sL_130)-> bellRing.ATPplusplus(sL,bS,true)) +		
+			(response_receiveSpeed(s_141toMaxSpeed).(bS== nonBraking && sL<=sL_140)-> bellRing.ATPplusplus(sL,bS,true)) +
+	
+	
+			%-------------- Freight Train(req5) --------------%
+			(response_receiveSpeed(s_41to60).freightMode.(sL==sL_40)-> releaseBrakeSignal.bellReminder.ATPplusplus(sL, bS, rB)) +
+			(response_receiveSpeed(s_61to80).freightMode.(sL==sL_60)-> releaseBrakeSignal.bellReminder.ATPplusplus(sL, bS, rB)) +
+			(response_receiveSpeed(s_81to130).freightMode.(sL==sL_80)-> releaseBrakeSignal.bellReminder.ATPplusplus(sL, bS, rB)) +
+			(response_receiveSpeed(s_131to140).freightMode.(sL==sL_130)-> releaseBrakeSignal.bellReminder.ATPplusplus(sL, bS, rB)) +
+	
+			%-------------- Receive TimeOut(req4) --------------%
+			((rB==true)-> timeOut.applyEmergencyBrake.ATPplusplus(sL, emergencyBraking, rB)) + 
+			
+			%-------------- req8 --------------%
+			((bS==emergencyBraking)-> fullStop.pressReset.ATPplusplus(sL,bS,rB)) +
+
+			%-------------- req6 --------------%
+			%(response_stopMessage.applyEmergencyBrake.fullStop.ATPplusplus(sL, bS, rB));
+			(response_stopMessage.applyEmergencyBrake.ATPplusplus(sL, emergencyBraking, rB));
+			
+	%---------------------------------------------------------------
+	%End of 		A T P ++ 
+	%---------------------------------------------------------------
+	
+	%---------------------------------------------------------------
+	%Beginning of 	A T P vv
+	%---------------------------------------------------------------
+		
+		ATPvv
+		=
+	
+			%--------------req6-----------------%
+			(request_stopMessage.ATPvv) ;
+	
+	%---------------------------------------------------------------
+	%End of 		A T P vv 
+	%---------------------------------------------------------------
+	
+	%---------------------------------------------------------------
+	init 
+	%--------------- I N I T I A L I Z A T I O N -------------------
+	
+		allow( 
+		{
+			
+			
+			bellRing,
+			bellReminder,
+
+			antennaOn,
+			antennaOff,
+
+			receiveSpecialPulse,
+			freightMode,
+			fullStop,
+			pressReset,
+	
+			timeOut,
+	
+			applyEmergencyBrake,
+			releaseBrakeSignal,
+	
+			stopMessage,
+	
+			allowedSpeed,
+	
+			allowedSpeedSend,
+	
+			receiveSpeed,
+	
+			reportBrakeStatus,
+
+			enterERTMS,
+			leaveERTMS,
+			ERTMS
+			
+			},
+	
+			comm( 
+			{
+	
+				request_stopMessage | response_stopMessage	-> stopMessage,
+				request_ERTMS | response_ERTMS	-> ERTMS,
+				request_allowedSpeed | response_allowedSpeed	-> allowedSpeed,
+				response_receiveSpeed	| request_receiveSpeed	-> receiveSpeed,
+				request_reportBrakeStatus	| response_reportBrakeStatus	-> reportBrakeStatus
+		
+			},
+	
+			genericATP || ATPvv || ATPplusplus(sL_40, nonBraking, false)
+	));
+

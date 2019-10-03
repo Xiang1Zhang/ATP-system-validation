@@ -1,0 +1,1 @@
+nu X(s:speedLimit=sL_40, c:currentSpeed=s_41to60).forall v:speedLimit.[allowedSpeed(v)]X(v, c)&& exists r:currentSpeed.[receiveSpeed(r)]X(v, r)&&(v && r=>mu X.[!bellRing]X)

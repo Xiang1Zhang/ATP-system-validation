@@ -1,0 +1,1 @@
+([true*.enterERTMS.!antennaOff*]<true*.antennaOff>true)&&([true*.leaveERTMS.!antennaOn*]<true*.antennaOn>true)
